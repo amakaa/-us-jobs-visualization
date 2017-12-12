@@ -1,0 +1,25 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../search-bar-element/search-bar-element.html">
+
+<dom-module id="data-viz-us-jobs-app">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+    <search-bar-element></search-bar-element>
+  </template>
+
+  <script>
+    /**
+     * @customElement
+     * @polymer
+     */
+    class DataVizUsJobsApp extends Polymer.Element {
+      static get is() { return 'data-viz-us-jobs-app'; }
+    }
+
+    window.customElements.define(DataVizUsJobsApp.is, DataVizUsJobsApp);
+  </script>
+</dom-module>

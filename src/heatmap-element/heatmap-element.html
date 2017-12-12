@@ -1,0 +1,188 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+
+<dom-module id="heatmap-element">
+  <template>
+    <link rel="stylesheet" href="../../src/heatmap-element/heatmap-element.css">
+    <div id="heatmap"></div>
+  </template>
+  <script>
+    class HeatmapElement extends Polymer.Element {
+      static get is() { return 'heatmap-element'; }
+
+      static get properties () { 
+        return {
+          searchTerm: {
+            type: String,
+            value: '',
+            observer: '_searchTermChanged'
+          }
+        };
+      }
+
+      _searchTermChanged(newVal, oldVal) {
+        console.log('heatmap searchTerm:', newVal)
+        this.searchTerm = newVal;
+        this.datasets = "../../data/jobs.json";
+        this._drawHeatMap(this.datasets, this.searchTerm);
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+      }
+
+      _organizeData (jsonData, states) {
+        let dataArray = [];
+        let dataObject = {};
+
+        for (let i = 0; i < jsonData.length; i++) {
+          for (let key in jsonData[i]) {
+            dataObject = {};
+
+            if (key !== 'name') {
+              dataObject.profession = key;
+              dataObject.state = jsonData[i].name; 
+              dataObject.statesFullNames = states[jsonData[i].name] 
+            }
+
+            if (Number.isInteger(Number(jsonData[i][key]))) {
+              dataObject.value = jsonData[i][key];
+            } 
+
+            if (Object.keys(dataObject).length > 0) {
+              dataArray.push(dataObject);
+            }
+          }
+        }
+
+        return dataArray;
+      }
+
+      _createElements (states) {
+        const selectSVG = d3.select(this.$.heatmap).select('svg');
+        selectSVG.remove();
+        const margin = { top: 50, right: 0, bottom: 100, left: 150 };
+        let width = 1250 - margin.left - margin.right;
+        let height = 300 - margin.top - margin.bottom;
+        const svg = d3.select(this.$.heatmap).append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        let gridSize = Math.floor(width / 66);
+        const buckets = 9;
+        const colors = colorbrewer.Oranges[9];
+
+        const professions = ['agriculture', 'manufacturing', 'mining', 'trade', 'domestic service', 'professional service'];
+
+        const professionLabels = svg.selectAll(".professionLabel")
+            .data(professions)
+            .enter().append("text")
+              .text((d) => { return d; })
+              .attr("x", 0)
+              .attr("y", (d, i) => { return i * gridSize; })
+              .style("text-anchor", "end")
+              .attr("transform", "translate(-6," + gridSize / 1.5 + ")")
+              .attr("class", (d, i) => { return ((i >= 0 && i <= professions.length) ? "professionLabel mono axis axis-profession" : "professionLabel mono axis"); });
+
+        const stateLabels = svg.selectAll(".stateLabel")
+            .data(states)
+            .enter().append("text")
+              .text((d) => { return d; })
+              .attr("x", (d, i) => { return i * gridSize * 1.1; })
+              .attr("y", 0)
+              .style("text-anchor", "middle")
+              .attr("transform", "translate(" + gridSize / 2 + ", -6)")
+              .attr("class", (d, i) => { return ((i >= 0 && i <= states.length) ? "stateLabel mono axis axis-state" : "stateLabel mono axis"); });
+
+        return { states, professions, buckets, colors, svg, gridSize, height };
+      }
+
+      getStateData () {
+        let request = new XMLHttpRequest();
+        request.open('GET', '../../data/states.json', false);
+        request.send(null);
+
+
+        const stateData = JSON.parse(request.responseText);
+
+        return stateData;
+      }
+
+      _drawHeatMap (jsonFile, searchTerm) {
+        const stateData = this.getStateData();
+        const states = Object.keys(stateData);
+        const elements = this._createElements(states);
+
+        d3.json(jsonFile, (d) => {
+          const dataArray = this._organizeData(d, stateData);
+          const colors = elements.colors;
+          const height = elements.height;
+          const professions = elements.professions;
+          const buckets = elements.buckets;
+
+          const colorScale = d3.scaleQuantile()
+                .domain([0, buckets - 1, d3.max(dataArray, (d) => {
+                  return d.value; })])
+                .range(colors);
+
+          let svg = elements.svg;
+          let gridSize = elements.gridSize;
+
+          let cards = svg.selectAll(".state")
+              .data(dataArray, (d) => { return d.profession+':'+d.state; });
+
+          cards.append("title");
+
+          cards.enter().append("rect")
+              .attr("x", (d, i) => { return states.indexOf(d.state) * gridSize * 1.1; })
+              .attr("y", (d, i) => { return professions.indexOf(d.profession) * gridSize; })
+              .attr("class", (d, i) => {         //new storage
+                const stateNames = d.statesFullNames.toLowerCase().split(' ').join(' ');
+                const term = searchTerm.toLowerCase().split(' ').join(' ');
+                const state = d.state.toLowerCase();
+
+                return stateNames === term || state === term ? "state chosen" : "state bordered"; 
+              })
+              .attr("width", gridSize)
+              .attr("height", gridSize)
+              .attr("fill", colors[0])
+              .transition().duration(1000)
+              .style("fill", (d) => { return colorScale(d.value); });
+
+          cards.select("title").text((d) => { return d.value; });
+
+          svg.selectAll('rect').append("svg:title")
+              .text((d) => { return d.value; });
+
+          this._drawHeatmapLegend(svg, colorScale, colors, gridSize, height);
+        });
+      }
+
+      _drawHeatmapLegend (svg, colorScale, colors, gridSize, height) {
+        let legendElementWidth = gridSize * 2;
+        let legend = svg.selectAll(".legend")
+            .data([0].concat(colorScale.quantiles()), (d) => { return d; });
+
+        legend.enter().append("g")
+          .attr("class", "legend")
+          .append("rect")
+          .attr("x", (d, i) => { return legendElementWidth * i; })
+          .attr("y", height)
+          .attr("width", legendElementWidth)
+          .attr("height", gridSize / 2)
+          .attr("fill", (d, i) => { return colors[i]; });
+
+        svg.selectAll(".legend").append("text")
+          .attr("class", "mono")
+          .text((d) => { return "≥ " + Math.round(d); })
+          .attr("x", (d, i) => { return legendElementWidth * i; })
+          .attr("y", height + gridSize);
+
+        legend.exit().remove();
+      }
+    };
+
+    window.customElements.define(HeatmapElement.is,HeatmapElement);
+  </script>
+</dom-module>

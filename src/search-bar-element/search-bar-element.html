@@ -1,0 +1,37 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bar-chart-element/bar-chart-element.html">
+<link rel="import" href="../heatmap-element/heatmap-element.html">
+
+<dom-module id="search-bar-element">
+  <template>
+    <link rel="stylesheet" href="../../src/search-bar-element/search-bar-element.css">
+    
+    <div id="search">
+      <iron-input>
+      <input type="search" id="input" autocomplete="off" placeholder="Search for your state here:" on-keyup="refreshChart" />
+    </iron-input>
+    </div>
+
+    <heatmap-element id="heatmap"></heatmap-element>
+    <bar-chart-element id="barchart"></bar-chart-element>
+  </template>
+  <script>
+    class SearchBarElement extends Polymer.Element {
+      static get is() { return 'search-bar-element'; }
+
+      ready() {
+        super.ready();
+        this.addEventListener('on-keyup', this.refreshChart);
+      }
+
+      refreshChart (e) {
+        if (e.keyCode === 13) {
+          this.$.heatmap.searchTerm = e.target.value;
+          this.$.barchart.searchTerm = e.target.value;
+        }
+      }
+    };
+
+    window.customElements.define(SearchBarElement.is,SearchBarElement);
+  </script>
+</dom-module>

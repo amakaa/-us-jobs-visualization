@@ -1,0 +1,15 @@
+{
+  "name": "d3-scale",
+  "homepage": "https://github.com/d3/d3-scale",
+  "version": "1.0.7",
+  "_release": "1.0.7",
+  "_resolution": {
+    "type": "version",
+    "tag": "v1.0.7",
+    "commit": "375af428d168260ba91b8f4dc7ef514de31765b0"
+  },
+  "_source": "https://github.com/d3/d3-scale.git",
+  "_target": "^1.0.7",
+  "_originalSource": "d3-scale",
+  "_direct": true
+}

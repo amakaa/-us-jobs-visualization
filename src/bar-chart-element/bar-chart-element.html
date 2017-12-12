@@ -1,0 +1,153 @@
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+
+<dom-module id="bar-chart-element">
+  <template>
+    <link rel="stylesheet" href="../../src/heatmap-element/heatmap-element.css">
+    <div id="bar-chart">
+      <svg width="960" height="500" id="svg"></svg>
+    </div>
+  </template>
+  <script>
+    class BarChartElement extends Polymer.Element {
+      static get is() { return 'bar-chart-element'; }
+
+      static get properties () { 
+        return {
+          searchTerm: {
+            type: String,
+            value: '',
+            observer: '_searchTermChanged'
+          }
+        };
+      }
+
+      _searchTermChanged(newVal, oldVal) {
+        this.searchTerm = newVal;
+        this.datasets = "../data/population.csv";
+        this._drawBarChart(this.datasets, this.searchTerm);
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+      }
+
+      _createElements () {
+        let svg = d3.select(this.$.svg);
+        let margin = {top: 20, right: 20, bottom: 30, left: 40};
+        let width = +svg.attr("width") - margin.left - margin.right;
+        let height = +svg.attr("height") - margin.top - margin.bottom;
+        let g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        const x = d3.scaleBand()
+            .rangeRound([0, width])
+            .paddingInner(0.05)
+            .align(0.1);
+
+        const y = d3.scaleLinear()
+            .rangeRound([height, 0]);
+
+        const z = d3.scaleOrdinal()
+            .range(["#98abc5", "#8a89a6", "#7b6888", "#6b486b", "#a05d56", "#d0743c", "#ff8c00"]);
+
+        return { g, x, y, z, height, width };
+      }
+
+      getStateData () {
+        let request = new XMLHttpRequest();
+        request.open('GET', '../../data/states.json', false);
+        request.send(null);
+
+
+        const stateData = JSON.parse(request.responseText);
+
+        return stateData;
+      }
+
+      _drawBarChart (csvData, searchTerm) {
+        const elements = this._createElements();
+        let g = elements.g;
+        let x = elements.x;
+        let y = elements.y;
+        let z = elements.z;
+        let height = elements.height;
+        let width = elements.width;
+
+        const stateData = Object.values(this.getStateData());
+
+        d3.csv(csvData, (d, i, columns) => {
+          let t = 0;
+          for (let i = 1; i < columns.length; ++i) t += d[columns[i]] = +d[columns[i]];
+          d.total = t;
+          d.stateFullName = stateData[i];
+          return d;
+        }, (error, data) => {
+          if (error) throw error;
+
+          let keys = data.columns.slice(1);
+
+          x.domain(data.map((d) => { return d.State; }));
+          y.domain([0, d3.max(data, (d) => { return d.total; })]).nice();
+          z.domain(keys);
+
+          g.append("g")
+            .selectAll("g")
+            .data(d3.stack().keys(keys)(data))
+            .enter().append("g")
+              .attr("fill", (d) => { return z(d.key); })
+            .selectAll("rect")
+            .data((d) => { return d; })
+            .enter().append("rect")
+              .attr("x", (d) => { return x(d.data.State); })
+              .attr("y", (d) => { return y(d[1]); })
+              .attr("height", (d) => { return y(d[0]) - y(d[1]); })
+              .attr("width", x.bandwidth())
+              .attr("class", (d, i) => { return d.data.stateFullName.toLowerCase() === searchTerm.toLowerCase() || d.data.State.toLowerCase() === searchTerm.toLowerCase() ? "chosen" : ""; } );
+
+          g.append("g")
+              .attr("class", "axis")
+              .attr("transform", "translate(0," + height + ")")
+              .call(d3.axisBottom(x));
+
+          g.append("g")
+              .attr("class", "axis")
+              .call(d3.axisLeft(y).ticks(null, "s"))
+            .append("text")
+              .attr("x", 2)
+              .attr("y", y(y.ticks().pop()) + 0.5)
+              .attr("dy", "0.32em")
+              .attr("fill", "#000")
+              .attr("font-weight", "bold")
+              .attr("text-anchor", "start")
+              .text("Population");
+
+          this._drawBarChartLegend(g, keys, width, z);
+        });
+      }
+
+      _drawBarChartLegend (g, keys, width, z) {
+          var legend = g.append("g")
+              .attr("font-family", "sans-serif")
+              .attr("font-size", 10)
+              .attr("text-anchor", "end")
+            .selectAll("g")
+            .data(keys.slice().reverse())
+            .enter().append("g")
+              .attr("transform", (d, i) => { return "translate(0," + i * 20 + ")"; });
+
+          legend.append("rect")
+              .attr("x", width - 19)
+              .attr("width", 19)
+              .attr("height", 19)
+              .attr("fill", z);
+
+          legend.append("text")
+              .attr("x", width - 24)
+              .attr("y", 9.5)
+              .attr("dy", "0.32em")
+              .text((d) => { return d; });
+      }
+    };
+
+    window.customElements.define(BarChartElement.is,BarChartElement);
+  </script>
+</dom-module>
