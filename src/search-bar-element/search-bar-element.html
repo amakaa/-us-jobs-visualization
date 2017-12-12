@@ -25,6 +25,7 @@
       }
 
       refreshChart (e) {
+        //populate search term on hitting enter
         if (e.keyCode === 13) {
           this.$.heatmap.searchTerm = e.target.value;
           this.$.barchart.searchTerm = e.target.value;

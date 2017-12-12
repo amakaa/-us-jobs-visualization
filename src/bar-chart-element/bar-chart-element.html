@@ -125,14 +125,14 @@
       }
 
       _drawBarChartLegend (g, keys, width, z) {
-          let legend = g.append("g")
-              .attr("font-family", "sans-serif")
-              .attr("font-size", 10)
-              .attr("text-anchor", "end")
+        let legend = g.append("g")
+            .attr("font-family", "sans-serif")
+            .attr("font-size", 10)
+            .attr("text-anchor", "end")
             .selectAll("g")
             .data(keys.slice().reverse())
             .enter().append("g")
-              .attr("transform", (d, i) => { return "translate(0," + i * 20 + ")"; });
+            .attr("transform", (d, i) => { return "translate(0," + i * 20 + ")"; });
 
           legend.append("rect")
               .attr("x", width - 19)
